@@ -7,13 +7,7 @@ Created to handle LZW bytestreams
 import binascii
 import math
 import collections
-
-def getBinaryRepresentation(binary):
-	try:
-		b = lambda x : '%08d' % int(x)
-		return b(binary.lstrip('-0b'))
-	except:
-		return "00000000"#just return empty
+import Utility
 
 def decompressLZWByteStream(byteStream,minimumSize,table):
 	maxIndex = minimumSize
@@ -63,13 +57,6 @@ def decompressLZWByteStream(byteStream,minimumSize,table):
 			print("maxIndex met: ",end="")
 			print(maxIndex)
 			maxIndex += 1
-
-def flatten(l):
-	try:
-		for item in l:
-			yield from flatten(item)
-	except TypeError:
-		yield l
 
 #gets the decimal code values from a LZW byte stream
 #pretty much uses the same algorithm as the decompressor

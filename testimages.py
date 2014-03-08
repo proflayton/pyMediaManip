@@ -1,3 +1,7 @@
+'''
+Jusa test program to test the librarys
+'''
+
 import tkinter, tkinter.filedialog
 import GIF
 from GIF import GIF

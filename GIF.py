@@ -1,70 +1,16 @@
 import binascii
 import LZW
+import Pixel
+import Image
+import Utility
 
-'''
-Utility Functions
-'''
-#convert bytes to hex
-def bytesToHex(byte):
-	return binascii.hexlify(byte)
-def bytesToDec(byte):
-	return int(binascii.hexlify(byte),16)
-#convert hex to dec
-def hexToDecimal(hexa):
-	return int(hexa,16)
-def getBinaryRepresentation(integer):
-	try:
-		b = lambda x : '%08d' % int(x)
-		return b(bin(integer).lstrip('-0b'))
-	except:
-		return "00000000"#just return empty
-
-class Pixel:
-	r = 0
-	g = 0
-	b = 0
-	a = 0
-
-	def __init__(self,r,g,b,a):
-		self.r = r
-		self.g = g
-		self.b = b
-		self.a = a
-
-	def set(self,other):
-		self.r = other.r
-		self.g = other.g
-		self.b = other.b
-		self.a = other.a
-
-	def printMe(self):
-		print(str(self))
-
-	def __repr__(self):
-		return "RGB: (" + str(self.r) + "," + str(self.g) + "," + str(self.b) + ")"
-
-class GIFImage:
+class GIFImage(image):
 	leftPosition= 0
 	topPostion 	= 0
-	width 		= 0
-	height 		= 0
 	LCTF		= 0
 	interlace	= 0
 	sort		= 0
-	pixels = []
-
-	def addPixel(self,pixel):
-		self.pixels.append(pixel)
-	def getPixel(self,x,y):
-		if(x >= self.width):
-			print("X is out of the height!")
-			return None
-		elif(y >= self.height):
-			print("Y is out of the height!")
-			return None
-		print(len(self.pixels))
-		print(str((y * self.height) + x))
-		return self.pixels[(y * self.width) + x]
+	
 
 class GIF:
 	gifImages = None
@@ -75,10 +21,13 @@ class GIF:
 
 	def getImage(self,pictureIndex):
 		return self.gifImages[pictureIndex]
+
 	def getPixel(self,pictureIndex,x,y):
 		return self.gifImages[pictureIndex].getPixel(x,y)
+
 	def setPixel(self,pictureIndex,x,y,pixel):
 		self.gifImages[pictureIndex].getPixel(x,y).set(pixel)
+
 	def loadGIF(self,file):
 		self.gifImages = []
 		print("Loading GIF")
@@ -86,7 +35,7 @@ class GIF:
 		logicalScreenWidth  = file.read(2)
 		logicalScreenHeight = file.read(2)
 		globalFlags 		= file.read(1)
-		globalFlags 		= getBinaryRepresentation(int(binascii.hexlify(globalFlags),16))
+		globalFlags 		= Utility.getBinaryRepresentation(int(binascii.hexlify(globalFlags),16))
 		GCTF 				= globalFlags[0]
 		globalColorResolution = globalFlags[1:3]
 		globalSortFlag		  = globalFlags[4]
@@ -116,7 +65,7 @@ class GIF:
 				height 		= file.read(2)
 				flags 		= file.read(1)
 
-				flagBits = getBinaryRepresentation(int(binascii.hexlify(flags),16))
+				flagBits = Utility.getBinaryRepresentation(int(binascii.hexlify(flags),16))
 				LCTF = flagBits[0]
 				interlace = flagBits[1]
 				sort = flagBits[2]
@@ -133,25 +82,21 @@ class GIF:
 				blockSize 		= file.read(1)
 				blockSize		= int(binascii.hexlify(blockSize),16)
 
-				#Special codes
-				clearCode = max(0,min(2**LZWMinsize,256))
-				eoiCode = clearCode + 1
+				
 
 				print("Size Of Image Data:" + str(blockSize))
 				LZWData = file.read(blockSize)
 
 				print("Bits per data: " + str(LZWMinsize))
 
-				#outFile = open("gifImage.txt","wb")
-				#outFile.write(bytes(int(bs,0) for bs in LZWData))
-				#outFile.flush()
-				#outFile.close()
-
 				#Decompress the imageBlock
 				table = self.globalColorTable
 				table.append("CLEAR")
 				table.append("EOI")
-				decompressed = LZW.getTableAndCodesLZWByteStream(LZWData,LZWMinsize,table)
+				#Special codes
+				eoiCode = len(table)
+				clearCode = eoiCode-1
+				decompressed = self.readRasterData(LZWData,LZWMinsize,table)
 				
 				table = decompressed['table']
 				codes = decompressed['codes']
@@ -159,14 +104,15 @@ class GIF:
 				for x in range(1, len(codes)-1):
 					gifImage.addPixel(codes[x])
 
-				realWidth = getBinaryRepresentation(width[1]) + getBinaryRepresentation(width[0])
-				realheight = getBinaryRepresentation(height[1]) + getBinaryRepresentation(height[0])
-				gifImage.width = int(realWidth,2)
-				gifImage.height = int(realheight,2)
-				print("GIF [W,H]: ["+str(gifImage.width)+","+str(gifImage.height)+"]")
+				gifImage.width 	 	  = int(Utility.getBinaryRepresentation(width[1]) + Utility.getBinaryRepresentation(width[0]),2)
+				gifImage.height 	  = int(Utility.getBinaryRepresentation(height[1]) + Utility.getBinaryRepresentation(height[0]),2)
+				gifImage.leftPosition = int(Utility.getBinaryRepresentation(width[1]) + Utility.getBinaryRepresentation(width[0]),2)
+				gifImage.topPostion   = int(Utility.getBinaryRepresentation(width[1]) + Utility.getBinaryRepresentation(width[0]),2)
+
 				self.gifImages.append(gifImage)
+				atEnd = file.read(1)==b'\x00'
 				print("Truely at end of Image Block: ",end="")
-				print(file.read(1)==b'\x00')
+				print(atEnd)
 			elif tempByte == b'\x21': #Extension Block
 				label = file.read(1)
 				if label == b'\xF9': #GCE
@@ -210,4 +156,71 @@ class GIF:
 					print("Truely at end of Extension Block: ",end="")
 					print(file.read(1)==b'\x00')
 			tempByte = file.read(1)
-			#print(tempByte)
+
+	#gets the decimal code values from a LZW byte stream
+	#pretty much uses the same algorithm as the decompressor
+	def readRasterData(byteStream,minimumSize,table):
+		maxIndex = minimumSize
+		codes = []
+		temp = None
+		tempCode = ''
+		index = 0
+		arrayPos = 0
+		#Initialize the table with atleast 1 array
+		for i in range(len(table)):
+			if type(table[i]) is not collections.Iterable:
+				table[i] = [table[i]]
+		while arrayPos < len(byteStream):
+			mult = 1
+			bitsRead = 0
+			code = 0
+			scrap = False
+			while bitsRead < maxIndex:
+				if arrayPos >= len(byteStream):
+					scrap = True
+					break;
+				intVal = byteStream[arrayPos]
+				code += mult*(intVal>>(index%8) & 1)
+
+				index+=1
+				arrayPos=int(index/8)
+				mult = 2**(1+bitsRead)
+				bitsRead+=1
+			if not scrap:
+				if code == minimumSize or code == minimumSize + 1: #GIF handling
+					print("Just a clear or end of data")
+					for c in Utility.flatten(table[code]):
+						codes.append(c)
+				else:
+					try:
+						if table[code] != None:
+							if temp != None:
+								tempArray = [
+									Utility.flatten(table[temp]),
+									table[code][0]
+									]
+								table.append(tempArray)
+								for c in Utility.flatten(table[code]):
+									codes.append(c)
+							else:
+								for c in Utility.flatten(table[code]):
+									codes.append(c)
+					except:
+						if temp != None:
+							tempArray = [
+								Utility.flatten(table[temp]),
+								table[temp][0]
+								]
+							table.append(tempArray)
+							for c in Utility.flatten(table[code]):
+								codes.append(c)
+							print(temp,end=" ")
+					temp = code
+			else:
+				break;
+			if code >= 2**maxIndex -1:
+				#print("maxIndex met: ",end="")
+				#print(maxIndex)
+				maxIndex += 1
+		return {"codes":codes,"table":table}
+
