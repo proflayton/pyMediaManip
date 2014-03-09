@@ -224,3 +224,8 @@ class GIF:
 				maxIndex += 1
 		return {"codes":codes,"table":table}
 
+	def saveGIF(path):
+		if gifImages == None:
+			print("Load or create an image first!")
+			return;
+		

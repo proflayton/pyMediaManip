@@ -124,13 +124,3 @@ def getTableAndCodesLZWByteStream(byteStream,minimumSize,table):
 			#print(maxIndex)
 			maxIndex += 1
 	return {"codes":codes,"table":table}
-
-#Debug
-
-bytes = [132,110,39,193,93]
-aArray = getTableAndCodesLZWByteStream(bytes,3,[0,1,2,3,4,5])
-print(aArray)
-table = aArray['table']
-codes = aArray['codes']
-for c in codes:
-	print(c)
