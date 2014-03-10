@@ -4,7 +4,7 @@ import Pixel
 import Image
 import Utility
 
-class GIFImage(image):
+class GIFImage(Image()):
 	leftPosition= 0
 	topPostion 	= 0
 	LCTF		= 0
@@ -14,7 +14,7 @@ class GIFImage(image):
 
 class GIF:
 	gifImages = None
-	delay = 1 #1ms default
+	delay = 0 #0ms default
 
 	globalColorTable = [Pixel(0,0,0,255) for x in range(258)]
 	localColorTable = [Pixel(0,0,0,255) for x in range(258)]

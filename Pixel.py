@@ -23,7 +23,4 @@ class Pixel:
 		self.alpha = alpha
 
 	def __repr__(self):
-		return "RGBA: ("+str(self.red)+","+
-						 str(self.green)+","+
-						 str(self.blue)+","+
-						 str(self.alpha)+")"
+		return "RGBA: ("+str(self.red)+","+str(self.green)+","+str(self.blue)+","+str(self.alpha)+")"
