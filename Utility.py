@@ -4,12 +4,15 @@ Utility.py
 Holds functions that will be used throughout the library
 '''
 
+import collections;
+
 def flatten(l):
-	try:
-		for item in l:
-			yield from flatten(item)
-	except TypeError:
-		yield l
+    for el in l:
+        if isinstance(el, collections.Iterable) and not isinstance(el, str):
+            for sub in flatten(el):
+                yield sub
+        else:
+            yield el
 
 def getBinaryRepresentation(binary):
 	try:

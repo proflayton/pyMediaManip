@@ -1,10 +1,11 @@
 import binascii
 import LZW
-import Pixel
-import Image
+from Pixel import Pixel
+from Image import Image
+import collections
 import Utility
 
-class GIFImage(Image()):
+class GIFImage(Image):
 	leftPosition= 0
 	topPostion 	= 0
 	LCTF		= 0
@@ -30,6 +31,7 @@ class GIF:
 
 	def loadGIF(self,file):
 		self.gifImages = []
+
 		print("Loading GIF")
 		file.seek(6,0) #skip magic number
 		logicalScreenWidth  = file.read(2)
@@ -100,14 +102,17 @@ class GIF:
 				
 				table = decompressed['table']
 				codes = decompressed['codes']
-				print(codes)
-				for x in range(1, len(codes)-1):
-					gifImage.addPixel(codes[x])
 
-				gifImage.width 	 	  = int(Utility.getBinaryRepresentation(width[1]) + Utility.getBinaryRepresentation(width[0]),2)
-				gifImage.height 	  = int(Utility.getBinaryRepresentation(height[1]) + Utility.getBinaryRepresentation(height[0]),2)
-				gifImage.leftPosition = int(Utility.getBinaryRepresentation(width[1]) + Utility.getBinaryRepresentation(width[0]),2)
-				gifImage.topPostion   = int(Utility.getBinaryRepresentation(width[1]) + Utility.getBinaryRepresentation(width[0]),2)
+				for x in range(1, len(codes)-1):
+					print(codes[x])
+					gifImage.addPixel(codes[x])
+				
+				gifImage.width 	 	  = int(str(width[1]+width[0]),16)
+				gifImage.height 	  = int(str(height[1]+height[0]),16)
+				gifImage.leftPosition = int(str(leftPosition[1]+leftPosition[0]),16)
+				gifImage.topPostion   = int(str(topPostion[1]+topPostion[0]),16)
+
+				print("Width: %s\nHeight: %s\n"%(gifImage.width,gifImage.height))
 
 				self.gifImages.append(gifImage)
 				atEnd = file.read(1)==b'\x00'
@@ -159,7 +164,7 @@ class GIF:
 
 	#gets the decimal code values from a LZW byte stream
 	#pretty much uses the same algorithm as the decompressor
-	def readRasterData(byteStream,minimumSize,table):
+	def readRasterData(self,byteStream,minimumSize,table):
 		maxIndex = minimumSize
 		codes = []
 		temp = None
@@ -224,8 +229,26 @@ class GIF:
 				maxIndex += 1
 		return {"codes":codes,"table":table}
 
-	def saveGIF(path):
+	def saveGIF(self,path):
 		if gifImages == None:
 			print("Load or create an image first!")
 			return;
 		
+	def showImage(self,imgIndex):
+		x = 0
+		y = 0
+		for pixel in self.gifImages[imgIndex].pixels:
+			avg = (pixel.red + pixel.green + pixel.blue)/3
+			#print(pixel)
+			if avg > 170:
+				s1 = '= '
+			elif avg > 85:
+				s1 = '+ '
+			else:
+				s1 = '- '
+			print(s1,end="")
+			x+=1
+			if x % self.gifImages[imgIndex].width == 0:
+				print("")
+				x = 0
+				y += 1

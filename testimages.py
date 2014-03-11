@@ -3,9 +3,7 @@ Jusa test program to test the librarys
 '''
 
 import tkinter, tkinter.filedialog
-import GIF
 from GIF import GIF
-from GIF import Pixel
 
 root = tkinter.Tk()
 root.withdraw()
@@ -17,9 +15,15 @@ f = open(file_path,"rb")
 myImage = GIF()
 myImage.loadGIF(f)
 
-for p in myImage.getImage(0).pixels:
-	print(p)
+#for p in myImage.getImage(0).pixels:
+#	print(p)
 
+#see the image in cmd line
+myImage.showImage(0)
+
+
+#debugging
+'''
 running = True
 print("type -1 to quit")
 while running:
@@ -43,3 +47,4 @@ while running:
 	if b == -1: continue
 	myImage.setPixel(0,x,y,Pixel(r,g,b,255))
 	print("--------------")
+'''

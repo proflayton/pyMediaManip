@@ -3,14 +3,13 @@ Image
 
 '''
 
-import Pixel
+from Pixel import Pixel
 
 class Image:
 	#Variable Declarations
-	pixels = None
+	pixels      = []
 	width 		= 0
 	height 		= 0
-
 
 	#Empty Constructor
 	def __init__(self):
