@@ -11,15 +11,16 @@ class Image:
 	width 		= 0
 	height 		= 0
 
-	#Empty Constructor
-	def __init__(self):
-		pixels = None
+	def __init__(self,width,height):
+		self.width  = width;
+		self.height = height;
+		self.pixels = [Pixel(0,0,0,255) for x in range(width*height)]
 
 	def __repr__(self):
 		return "Image with " + str(len(pixels)) + " pixels"
 
-	def addPixel(self,pixel):
-		self.pixels.append(pixel)
+	def setPixel(self,x,y,pixel):
+		self.pixels[(y*self.width) + x] = pixel
 	def getPixel(self,x,y):
 		if(x >= self.width):
 			print("X is out of the height!")

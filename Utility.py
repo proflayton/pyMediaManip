@@ -4,7 +4,8 @@ Utility.py
 Holds functions that will be used throughout the library
 '''
 
-import collections;
+import collections
+import binascii
 
 def flatten(l):
     for el in l:
@@ -25,7 +26,8 @@ def getBinaryRepresentation(binary):
 def bytesToHex(byte):
 	return binascii.hexlify(byte)
 def bytesToDec(byte):
-	return int(binascii.hexlify(byte),16)
+	print(byte)
+	return int(byte,16)
 #convert hex to dec
 def hexToDecimal(hexa):
 	return int(hexa,16)

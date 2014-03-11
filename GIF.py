@@ -17,8 +17,8 @@ class GIF:
 	gifImages = None
 	delay = 0 #0ms default
 
-	globalColorTable = [Pixel(0,0,0,255) for x in range(258)]
-	localColorTable = [Pixel(0,0,0,255) for x in range(258)]
+	globalColorTable = []
+	localColorTable = []
 
 	def getImage(self,pictureIndex):
 		return self.gifImages[pictureIndex]
@@ -36,31 +36,31 @@ class GIF:
 		file.seek(6,0) #skip magic number
 		logicalScreenWidth  = file.read(2)
 		logicalScreenHeight = file.read(2)
-		globalFlags 		= file.read(1)
-		globalFlags 		= Utility.getBinaryRepresentation(int(binascii.hexlify(globalFlags),16))
-		GCTF 				= globalFlags[0]
-		globalColorResolution = globalFlags[1:3]
-		globalSortFlag		  = globalFlags[4]
-		sizeOfGlobalColorTable= globalFlags[5:7]
-		sizeOfGlobalColorTable= int(sizeOfGlobalColorTable,2)
+		globalFlags 		= int.from_bytes(file.read(1),byteorder="little")
+		#print(globalFlags)
+		GCTF 				= globalFlags&128
+		globalColorResolution = globalFlags&112
+		globalSortFlag		  = globalFlags&8
+		sizeOfGlobalColorTable= globalFlags&7
+		print(sizeOfGlobalColorTable)
 		sizeOfGlobalColorTable= 2**(1+sizeOfGlobalColorTable)
+		print(sizeOfGlobalColorTable)
 		print("GCTF: " + str(GCTF))
 		print("Size of Global Table: " + str(sizeOfGlobalColorTable))
 		bgColorIndex 		= file.read(1)
 		pixelAspectRatio	= file.read(1)
 
-		for i in range(256): #read in the global color table
+		for i in range(sizeOfGlobalColorTable): #read in the global color table
 			r = int(binascii.hexlify(file.read(1)),16)
 			g = int(binascii.hexlify(file.read(1)),16)
 			b = int(binascii.hexlify(file.read(1)),16)
-			self.globalColorTable[i] = Pixel(r,g,b,255)
+			self.globalColorTable.append(Pixel(r,g,b,255))
 
 		tempByte = file.read(1)
 
 		while tempByte != b'\x3B' and tempByte != b'':
 			if tempByte == b'\x2C': #imageBlock
 				print("")
-				gifImage = GIFImage()
 				leftPosition= file.read(2)
 				topPostion 	= file.read(2)
 				width 		= file.read(2)
@@ -103,14 +103,19 @@ class GIF:
 				table = decompressed['table']
 				codes = decompressed['codes']
 
+				#Little endian
+				width 	 	 = int.from_bytes(width,byteorder="little")
+				height 	 = int.from_bytes(height,byteorder="little")
+				leftPosition= int.from_bytes(leftPosition,byteorder="little")
+				topPostion  = int.from_bytes(topPostion,byteorder="little")
+
+				gifImage = GIFImage(width,height)
+				gifImage.leftPosition = leftPosition
+				gifImage.topPostion = topPostion
+
 				for x in range(1, len(codes)-1):
-					print(codes[x])
-					gifImage.addPixel(codes[x])
-				
-				gifImage.width 	 	  = int(str(width[1]+width[0]),16)
-				gifImage.height 	  = int(str(height[1]+height[0]),16)
-				gifImage.leftPosition = int(str(leftPosition[1]+leftPosition[0]),16)
-				gifImage.topPostion   = int(str(topPostion[1]+topPostion[0]),16)
+					#print(codes[x])
+					gifImage.setPixel(x%gifImage.width,int(x/gifImage.width),codes[x])
 
 				print("Width: %s\nHeight: %s\n"%(gifImage.width,gifImage.height))
 
@@ -171,10 +176,10 @@ class GIF:
 		tempCode = ''
 		index = 0
 		arrayPos = 0
-		#Initialize the table with atleast 1 array
 		for i in range(len(table)):
-			if type(table[i]) is not collections.Iterable:
-				table[i] = [table[i]]
+			table[i] = [table[i]]
+		print("Raster Data Table: -BEFORE")
+		print(table)
 		while arrayPos < len(byteStream):
 			mult = 1
 			bitsRead = 0
@@ -186,47 +191,52 @@ class GIF:
 					break;
 				intVal = byteStream[arrayPos]
 				code += mult*(intVal>>(index%8) & 1)
-
 				index+=1
 				arrayPos=int(index/8)
 				mult = 2**(1+bitsRead)
 				bitsRead+=1
 			if not scrap:
-				if code == minimumSize or code == minimumSize + 1: #GIF handling
+				print(code,end=" ")
+				if table[code]=='TEMP': #GIF handling
 					print("Just a clear or end of data")
-					for c in Utility.flatten(table[code]):
-						codes.append(c)
+					#for c in Utility.flatten(table[code]):
+						#codes.append(c)
+				elif table[code] == 'EOI':
+					print("EOI")
+					break;
 				else:
 					try:
 						if table[code] != None:
 							if temp != None:
-								tempArray = [
-									Utility.flatten(table[temp]),
-									table[code][0]
-									]
+								tempArray = []
+								for i in table[temp]:
+									tempArray.append(i)
+								tempArray.append(table[code][0])
 								table.append(tempArray)
-								for c in Utility.flatten(table[code]):
+								for c in table[code]:
 									codes.append(c)
 							else:
-								for c in Utility.flatten(table[code]):
+								for c in table[code]:
 									codes.append(c)
 					except:
 						if temp != None:
-							tempArray = [
-								Utility.flatten(table[temp]),
-								table[temp][0]
-								]
+							tempArray = []
+							for i in table[temp]:
+								tempArray.append(i)
+							tempArray.append(table[temp][0])
 							table.append(tempArray)
-							for c in Utility.flatten(table[code]):
+							for c in table[code]:
 								codes.append(c)
-							print(temp,end=" ")
-					temp = code
+				temp = code
 			else:
 				break;
-			if code >= 2**maxIndex -1:
-				#print("maxIndex met: ",end="")
-				#print(maxIndex)
+			if code >= 2**maxIndex-1:
+				print("maxIndex met: ",end="")
+				print(maxIndex)
 				maxIndex += 1
+
+		print("Raster Data Table: -AFTER")
+		#print(table)
 		return {"codes":codes,"table":table}
 
 	def saveGIF(self,path):
