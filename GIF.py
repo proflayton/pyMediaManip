@@ -98,10 +98,7 @@ class GIF:
 				#Special codes
 				eoiCode = len(table)
 				clearCode = eoiCode-1
-				decompressed = self.readRasterData(LZWData,LZWMinsize,table)
-				
-				table = decompressed['table']
-				codes = decompressed['codes']
+				indexStream = self.readRasterData(LZWData,LZWMinsize,table)
 
 				#Little endian
 				width 	 	 = int.from_bytes(width,byteorder="little")
@@ -113,9 +110,9 @@ class GIF:
 				gifImage.leftPosition = leftPosition
 				gifImage.topPostion = topPostion
 
-				for x in range(1, len(codes)-1):
-					#print(codes[x])
-					gifImage.setPixel(x%gifImage.width,int(x/gifImage.width),codes[x])
+				for x in range(0, len(indexStream)):
+					print(indexStream[x],end=", ")
+					gifImage.setPixel(x%gifImage.width,int(x/gifImage.width),self.globalColorTable[indexStream[x]])
 
 				print("Width: %s\nHeight: %s\n"%(gifImage.width,gifImage.height))
 
@@ -170,16 +167,26 @@ class GIF:
 	#gets the decimal code values from a LZW byte stream
 	#pretty much uses the same algorithm as the decompressor
 	def readRasterData(self,byteStream,minimumSize,table):
+		print(minimumSize)
+		#variables for streams
+		firstCode = True
+		code = None
+		prev = []
+		indexStream= []
+		codes = [] #this will hold all of our code that we don't need after we get indexes
+
+		#Varaibles for reading
 		maxIndex = minimumSize
-		codes = []
-		temp = None
-		tempCode = ''
 		index = 0
 		arrayPos = 0
-		for i in range(len(table)):
-			table[i] = [table[i]]
-		print("Raster Data Table: -BEFORE")
-		print(table)
+
+		#initialize the table
+		for i in range(len(table)): #
+			codes.append([i])
+
+		#print("Raster Data Table: -BEFORE")
+		#print(table)
+
 		while arrayPos < len(byteStream):
 			mult = 1
 			bitsRead = 0
@@ -196,48 +203,55 @@ class GIF:
 				mult = 2**(1+bitsRead)
 				bitsRead+=1
 			if not scrap:
-				print(code,end=" ")
-				if table[code]=='TEMP': #GIF handling
-					print("Just a clear or end of data")
-					#for c in Utility.flatten(table[code]):
-						#codes.append(c)
-				elif table[code] == 'EOI':
-					print("EOI")
-					break;
+				if firstCode:
+					if codes[code] != [minimumSize+1]:
+						prev = []
+						for ele in codes[code]:
+							prev.append(ele)
+							indexStream.append(ele)
+							#print(ele,end=" ") #CLEAR
+							firstCode = False
+				elif len(codes)-1 < code: #code doesn't exist yet
+					#print(str(code) + " does not exist yet")
+					k = prev[0]
+					temp = []
+					for ele in prev:
+						temp.append(ele)
+					temp.append(k)
+					prev = []
+					for ele in temp:
+						prev.append(ele)
+						indexStream.append(ele)
+						#print(ele,end=" ")
+					codes.append(temp)
 				else:
-					try:
-						if table[code] != None:
-							if temp != None:
-								tempArray = []
-								for i in table[temp]:
-									tempArray.append(i)
-								tempArray.append(table[code][0])
-								table.append(tempArray)
-								for c in table[code]:
-									codes.append(c)
-							else:
-								for c in table[code]:
-									codes.append(c)
-					except:
-						if temp != None:
-							tempArray = []
-							for i in table[temp]:
-								tempArray.append(i)
-							tempArray.append(table[temp][0])
-							table.append(tempArray)
-							for c in table[code]:
-								codes.append(c)
-				temp = code
-			else:
+					if codes[code] == [minimumSize+1]: #CLEAR
+						continue;
+					elif codes[code] == [minimumSize+2]: #EOI
+						break;
+					else:
+						#print(str(code), end=", ")
+						temp = prev
+						k = codes[code][0]
+						prev = []
+						for ele in codes[code]: #put the indexs into the index stream
+							prev.append(ele)
+							indexStream.append(ele)
+							#print(ele,end=" ")
+						temp.append(k) #codes[code-1]+k
+						codes.append(temp)
+
+			else: #we are at the end, just scrap bits left
 				break;
-			if code >= 2**maxIndex-1:
-				print("maxIndex met: ",end="")
-				print(maxIndex)
+
+			if len(codes)-1 >= 2**maxIndex-1:
+				#print("maxIndex met: ",end="")
+				#print(maxIndex)
 				maxIndex += 1
 
-		print("Raster Data Table: -AFTER")
+		#print("Raster Data Table: -AFTER")
 		#print(table)
-		return {"codes":codes,"table":table}
+		return indexStream
 
 	def saveGIF(self,path):
 		if gifImages == None:
@@ -248,14 +262,17 @@ class GIF:
 		x = 0
 		y = 0
 		for pixel in self.gifImages[imgIndex].pixels:
-			avg = (pixel.red + pixel.green + pixel.blue)/3
 			#print(pixel)
-			if avg > 170:
-				s1 = '= '
-			elif avg > 85:
-				s1 = '+ '
+			if pixel.red == 0 and pixel.green == 0 and pixel.blue == 0:
+				s1 = '0 '
+			elif pixel.red == 255 and pixel.green == 255 and pixel.blue == 255:
+				s1 = 'w '
+			elif pixel.red > pixel.green and pixel.red > pixel.blue:
+				s1 = 'r '
+			elif pixel.green > pixel.blue:
+				s1 = 'g '
 			else:
-				s1 = '- '
+				s1 = 'b '
 			print(s1,end="")
 			x+=1
 			if x % self.gifImages[imgIndex].width == 0:
