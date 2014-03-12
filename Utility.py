@@ -6,6 +6,7 @@ Holds functions that will be used throughout the library
 
 import collections
 import binascii
+import math
 
 def flatten(l):
     for el in l:
@@ -31,3 +32,6 @@ def bytesToDec(byte):
 #convert hex to dec
 def hexToDecimal(hexa):
 	return int(hexa,16)
+
+def colorDistance(c1,c2):
+	return abs(c1.red - c2.red) + abs(c1.blue - c2.blue) + abs(c1.green - c2.green)

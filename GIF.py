@@ -14,6 +14,7 @@ class GIFImage(Image):
 	
 
 class GIF:
+	imagesAmount = 0
 	gifImages = None
 	delay = 0 #0ms default
 
@@ -111,12 +112,13 @@ class GIF:
 				gifImage.topPostion = topPostion
 
 				for x in range(0, len(indexStream)):
-					print(indexStream[x],end=", ")
+					#print(indexStream[x],end=", ")
 					gifImage.setPixel(gifImage.leftPosition+x%gifImage.width,int(x/gifImage.width),self.globalColorTable[indexStream[x]])
 
 				print("Width: %s\nHeight: %s\n"%(gifImage.width,gifImage.height))
 
 				self.gifImages.append(gifImage)
+				imagesAmount+=1
 				atEnd = file.read(1)==b'\x00'
 				print("Truely at end of Image Block: ",end="")
 				print(atEnd)
@@ -129,38 +131,27 @@ class GIF:
 					delay= file.read(2)
 					self.delay = int(binascii.hexlify(delay),16) #get the delay in ms
 					tci	 = file.read(1) #transparency color index
-					print("Truely at end of Extension Block: ",end="")
+					print("Truely at end of Graphics Control Extension Block: ",end="")
 					print(file.read(1)==b'\x00')
 				elif label == b'\xFE': #comment extension block
 					size = file.read(1)
 					size = int(binascii.hexlify(size),16)
 					data = file.read(size)
-					print("Truely at end of Extension Block: ",end="")
+					print("Truely at end of Comment Extension Block: ",end="")
 					print(file.read(1)==b'\x00')
 				elif label == '\x01': #Plain Text Extension Block
 					size = file.read(1)
-					size = int(binascii.hexlify(szie),16)
-					textGridLeftPosition = file.read(2)
-					textGridTopPosition	 = file.read(2)
-					textGridWidth		 = file.read(2)
-					textGridHeight		 = file.read(2)
-					characterCellWidth	 = file.read(1)
-					characterCellHeight	 = file.read(1)
-					textForegroundIndex	 = file.read(1)
-					textBackgroundIndex	 = file.read(1)
-					blockSize			 = file.read(1)
-					blockSize = int(binascii.hexlify(blockSize),16)
-					data = file.read(blockSize)
-					print("Truely at end of Extension Block: ",end="")
-					print(file.read(1)==b'\x00')
+					blockSize = int(binascii.hexlify(size),16)
+					file.read(blockSize)
+					while file.read(1) != b'\x00':
+						pass
+					print("End of Plain Text Extension Block",end="")
 				elif label == b'\xFF': #Application Extension Block
 					size = file.read(1)
 					size = int(binascii.hexlify(size),16)
 					app	 = file.read(8)
-					blockSize = file.read(1)
-					blockSize = int(binascii.hexlify(blockSize),16)
-					data = file.read(blockSize)
-					print("Truely at end of Extension Block: ",end="")
+					data = file.read(size-8)
+					print("Truely at end of Application Extension Block: ",end="")
 					print(file.read(1)==b'\x00')
 			tempByte = file.read(1)
 
@@ -261,23 +252,34 @@ class GIF:
 		if gifImages == None:
 			print("Load or create an image first!")
 			return;
-		
+	
+	#Print the image into command line arbitrarily 
+	#(Red Green Blue Yellow Black White)
+	#Finds the closest the pixel is to and uses that as the "color"
 	def showImage(self,imgIndex):
 		x = 0
 		y = 0
+		yellow= Pixel(255,255,0,255)
+		red   = Pixel(255,0,0,255)
+		green = Pixel(0,255,0,255)
+		blue  = Pixel(0,0,255,255)
+		black = Pixel(0,0,0,255)
+		white = Pixel(255,255,255,255)
 		for pixel in self.gifImages[imgIndex].pixels:
 			#print(pixel)
-			if pixel.red == 0 and pixel.green == 0 and pixel.blue == 0:
-				s1 = '0 '
-			elif pixel.red == 255 and pixel.green == 255 and pixel.blue == 255:
-				s1 = 'w '
-			elif pixel.red > pixel.green and pixel.red > pixel.blue:
-				s1 = 'r '
-			elif pixel.green > pixel.blue:
-				s1 = 'g '
-			else:
-				s1 = 'b '
-			print(s1,end="")
+			yD = [Utility.colorDistance(yellow,pixel),'y ']
+			rD = [Utility.colorDistance(red,pixel),'r ']
+			gD = [Utility.colorDistance(green,pixel),'g ']
+			bD = [Utility.colorDistance(blue,pixel),'b ']
+			bkD= [Utility.colorDistance(black,pixel),'B ']
+			wD = [Utility.colorDistance(white,pixel),'w ']
+			distances = [yD,rD,gD,bD,bkD,wD]
+			closest = distances[0]
+			for i in range(1,len(distances)):
+				if distances[i][0] < closest[0]:
+					closest = distances[i]
+
+			print(closest[1],end="")
 			x+=1
 			if x % self.gifImages[imgIndex].width == 0:
 				print("")
