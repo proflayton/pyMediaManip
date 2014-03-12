@@ -112,7 +112,7 @@ class GIF:
 
 				for x in range(0, len(indexStream)):
 					print(indexStream[x],end=", ")
-					gifImage.setPixel(x%gifImage.width,int(x/gifImage.width),self.globalColorTable[indexStream[x]])
+					gifImage.setPixel(gifImage.leftPosition+x%gifImage.width,int(x/gifImage.width),self.globalColorTable[indexStream[x]])
 
 				print("Width: %s\nHeight: %s\n"%(gifImage.width,gifImage.height))
 
@@ -182,11 +182,15 @@ class GIF:
 
 		#initialize the table
 		for i in range(len(table)): #
-			codes.append([i])
+			if table[i]=="CLEAR":
+				codes.append(["CLEAR"])
+			elif table[i] == "EOI":
+				codes.append(["EOI"])
+			else:
+				codes.append([i])
 
 		#print("Raster Data Table: -BEFORE")
 		#print(table)
-
 		while arrayPos < len(byteStream):
 			mult = 1
 			bitsRead = 0
@@ -204,7 +208,7 @@ class GIF:
 				bitsRead+=1
 			if not scrap:
 				if firstCode:
-					if codes[code] != [minimumSize+1]:
+					if codes[code] != ["CLEAR"]:
 						prev = []
 						for ele in codes[code]:
 							prev.append(ele)
@@ -225,9 +229,9 @@ class GIF:
 						#print(ele,end=" ")
 					codes.append(temp)
 				else:
-					if codes[code] == [minimumSize+1]: #CLEAR
+					if codes[code] == ["CLEAR"]: #CLEAR
 						continue;
-					elif codes[code] == [minimumSize+2]: #EOI
+					elif codes[code] == ["EOI"]: #EOI
 						break;
 					else:
 						#print(str(code), end=", ")
