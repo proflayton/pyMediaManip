@@ -19,7 +19,10 @@ myImage.loadGIF(f)
 #	print(p)
 
 #see the image in cmd line
-myImage.showImage(0)
+for i in range(myImage.imagesAmount):
+	print("Image #"+str(i))
+	myImage.gifImages[i].showImage()
+
 
 
 #debugging

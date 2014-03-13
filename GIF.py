@@ -1,23 +1,27 @@
 import binascii
-import LZW
 from Pixel import Pixel
 from Image import Image
 import collections
 import Utility
 
 class GIFImage(Image):
-	leftPosition= 0
-	topPostion 	= 0
+	delay		= 0
 	LCTF		= 0
 	interlace	= 0
 	sort		= 0
 	
 
 class GIF:
+	transparencyIndex = 0
+	transparency = 0
+	userInput = 0
+	disposalMethod = 0
+	repetitions = 0
 	imagesAmount = 0
 	gifImages = None
 	delay = 0 #0ms default
 
+	globalCodes = None
 	globalColorTable = []
 	localColorTable = []
 
@@ -32,30 +36,34 @@ class GIF:
 
 	def loadGIF(self,file):
 		self.gifImages = []
+		disposedImage = None
 
 		print("Loading GIF")
 		file.seek(6,0) #skip magic number
-		logicalScreenWidth  = file.read(2)
-		logicalScreenHeight = file.read(2)
+		logicalScreenWidth  = int.from_bytes(file.read(2),byteorder="little")
+		logicalScreenHeight = int.from_bytes(file.read(2),byteorder="little")
 		globalFlags 		= int.from_bytes(file.read(1),byteorder="little")
 		#print(globalFlags)
-		GCTF 				= globalFlags&128
-		globalColorResolution = globalFlags&112
-		globalSortFlag		  = globalFlags&8
+		GCTF 				  = (globalFlags>>7)&1
+		globalColorResolution = (globalFlags>>4)&7
+		globalSortFlag		  = (globalFlags>>3)&1
 		sizeOfGlobalColorTable= globalFlags&7
 		print(sizeOfGlobalColorTable)
 		sizeOfGlobalColorTable= 2**(1+sizeOfGlobalColorTable)
 		print(sizeOfGlobalColorTable)
 		print("GCTF: " + str(GCTF))
 		print("Size of Global Table: " + str(sizeOfGlobalColorTable))
-		bgColorIndex 		= file.read(1)
+		bgColorIndex 		= int.from_bytes(file.read(1),byteorder='little')
 		pixelAspectRatio	= file.read(1)
 
 		for i in range(sizeOfGlobalColorTable): #read in the global color table
 			r = int(binascii.hexlify(file.read(1)),16)
 			g = int(binascii.hexlify(file.read(1)),16)
 			b = int(binascii.hexlify(file.read(1)),16)
-			self.globalColorTable.append(Pixel(r,g,b,255))
+			self.globalColorTable.append(Pixel(red=r,green=g,blue=b,alpha=255))
+
+		disposedImage = GIFImage(width=logicalScreenWidth,height=logicalScreenHeight);
+		disposedImage.fill()
 
 		tempByte = file.read(1)
 
@@ -63,7 +71,7 @@ class GIF:
 			if tempByte == b'\x2C': #imageBlock
 				print("")
 				leftPosition= file.read(2)
-				topPostion 	= file.read(2)
+				topPosition = file.read(2)
 				width 		= file.read(2)
 				height 		= file.read(2)
 				flags 		= file.read(1)
@@ -85,8 +93,6 @@ class GIF:
 				blockSize 		= file.read(1)
 				blockSize		= int(binascii.hexlify(blockSize),16)
 
-				
-
 				print("Size Of Image Data:" + str(blockSize))
 				LZWData = file.read(blockSize)
 
@@ -96,41 +102,58 @@ class GIF:
 				table = self.globalColorTable
 				table.append("CLEAR")
 				table.append("EOI")
-				#Special codes
-				eoiCode = len(table)
-				clearCode = eoiCode-1
-				indexStream = self.readRasterData(LZWData,LZWMinsize,table)
-
+				raster = self.readRasterData(LZWData,LZWMinsize,table)
+				indexStream = raster["indexStream"]
+				self.globalCodes = raster["codes"]
 				#Little endian
 				width 	 	 = int.from_bytes(width,byteorder="little")
-				height 	 = int.from_bytes(height,byteorder="little")
-				leftPosition= int.from_bytes(leftPosition,byteorder="little")
-				topPostion  = int.from_bytes(topPostion,byteorder="little")
+				height 	 	 = int.from_bytes(height,byteorder="little")
+				leftPosition = int.from_bytes(leftPosition,byteorder="little")
+				topPosition  = int.from_bytes(topPosition,byteorder="little")
+				print("Position: (%s,%s)"%(leftPosition,topPosition))
+				print("Width: %s Height: %s\n"%(width,height))
 
-				gifImage = GIFImage(width,height)
-				gifImage.leftPosition = leftPosition
-				gifImage.topPostion = topPostion
+				if self.imagesAmount > 0:
+					gifImage = GIFImage(orig=disposedImage)
+				else:
+					gifImage = GIFImage(width=width,height=height)
 
 				for x in range(0, len(indexStream)):
-					#print(indexStream[x],end=", ")
-					gifImage.setPixel(gifImage.leftPosition+x%gifImage.width,int(x/gifImage.width),self.globalColorTable[indexStream[x]])
-
-				print("Width: %s\nHeight: %s\n"%(gifImage.width,gifImage.height))
-
+					#print(indexStream[x], end=" ")
+					if indexStream[x] == self.transparencyIndex:
+						pass
+					else:
+						gifImage.setPixel(leftPosition+x%width,topPosition+int(x/width),self.globalColorTable[indexStream[x]])
+				#print("GIF Width: %s\nGIF Height: %s\n"%(gifImage.width,gifImage.height))
+				#gifImage.showImage()
+				gifImage.delay = self.delay;
 				self.gifImages.append(gifImage)
-				imagesAmount+=1
+				self.imagesAmount+=1
 				atEnd = file.read(1)==b'\x00'
 				print("Truely at end of Image Block: ",end="")
 				print(atEnd)
+
+				if self.disposalMethod == 1:
+					disposedImage = GIFImage(orig=gifImage)
+					print("Saving Image")
+				elif self.disposalMethod == 2:
+					disposedImage.fill(self.globalColorTable[bgColorIndex])
 			elif tempByte == b'\x21': #Extension Block
 				label = file.read(1)
 				if label == b'\xF9': #GCE
-					size = file.read(1)
-					size = int(binascii.hexlify(size),16)
-					flags= file.read(1)
-					delay= file.read(2)
-					self.delay = int(binascii.hexlify(delay),16) #get the delay in ms
-					tci	 = file.read(1) #transparency color index
+					size  = file.read(1)
+					size  = int(binascii.hexlify(size),16)
+					packed= file.read(1)
+					packed = int.from_bytes(packed,byteorder='little')
+					self.transparency 	= packed&1
+					self.userInput 		= (packed>>1)&1
+					self.disposalMethod = (packed>>2)&7
+
+					print("DISPOSAL METHOD: " + str(self.disposalMethod))
+
+					self.delay = int.from_bytes(file.read(2),byteorder='little')
+					#transparency color index
+					self.transparencyIndex = int.from_bytes(file.read(1),byteorder='little') 
 					print("Truely at end of Graphics Control Extension Block: ",end="")
 					print(file.read(1)==b'\x00')
 				elif label == b'\xFE': #comment extension block
@@ -149,8 +172,12 @@ class GIF:
 				elif label == b'\xFF': #Application Extension Block
 					size = file.read(1)
 					size = int(binascii.hexlify(size),16)
-					app	 = file.read(8)
-					data = file.read(size-8)
+					app	 = file.read(size)
+					size = file.read(1)
+					data = file.read(int(binascii.hexlify(size),16))
+					if app == b"NETSCAPE2.0":
+						self.repetitions = int.from_bytes(data[1:2],byteorder="little")
+						print("reps:" + str(self.repetitions))
 					print("Truely at end of Application Extension Block: ",end="")
 					print(file.read(1)==b'\x00')
 			tempByte = file.read(1)
@@ -174,8 +201,10 @@ class GIF:
 		#initialize the table
 		for i in range(len(table)): #
 			if table[i]=="CLEAR":
+				print("CLEAR AT " + str(i))
 				codes.append(["CLEAR"])
 			elif table[i] == "EOI":
+				print("EOI AT " + str(i))
 				codes.append(["EOI"])
 			else:
 				codes.append([i])
@@ -198,6 +227,7 @@ class GIF:
 				mult = 2**(1+bitsRead)
 				bitsRead+=1
 			if not scrap:
+				print(code,end=" ")
 				if firstCode:
 					if codes[code] != ["CLEAR"]:
 						prev = []
@@ -223,6 +253,7 @@ class GIF:
 					if codes[code] == ["CLEAR"]: #CLEAR
 						continue;
 					elif codes[code] == ["EOI"]: #EOI
+						print("EOI when codes was " + str(len(codes)))
 						break;
 					else:
 						#print(str(code), end=", ")
@@ -246,42 +277,9 @@ class GIF:
 
 		#print("Raster Data Table: -AFTER")
 		#print(table)
-		return indexStream
+		return {"indexStream":indexStream,"codes":codes}
 
 	def saveGIF(self,path):
 		if gifImages == None:
 			print("Load or create an image first!")
 			return;
-	
-	#Print the image into command line arbitrarily 
-	#(Red Green Blue Yellow Black White)
-	#Finds the closest the pixel is to and uses that as the "color"
-	def showImage(self,imgIndex):
-		x = 0
-		y = 0
-		yellow= Pixel(255,255,0,255)
-		red   = Pixel(255,0,0,255)
-		green = Pixel(0,255,0,255)
-		blue  = Pixel(0,0,255,255)
-		black = Pixel(0,0,0,255)
-		white = Pixel(255,255,255,255)
-		for pixel in self.gifImages[imgIndex].pixels:
-			#print(pixel)
-			yD = [Utility.colorDistance(yellow,pixel),'y ']
-			rD = [Utility.colorDistance(red,pixel),'r ']
-			gD = [Utility.colorDistance(green,pixel),'g ']
-			bD = [Utility.colorDistance(blue,pixel),'b ']
-			bkD= [Utility.colorDistance(black,pixel),'B ']
-			wD = [Utility.colorDistance(white,pixel),'w ']
-			distances = [yD,rD,gD,bD,bkD,wD]
-			closest = distances[0]
-			for i in range(1,len(distances)):
-				if distances[i][0] < closest[0]:
-					closest = distances[i]
-
-			print(closest[1],end="")
-			x+=1
-			if x % self.gifImages[imgIndex].width == 0:
-				print("")
-				x = 0
-				y += 1
