@@ -1,5 +1,9 @@
 '''
+testimages.py
+
 Jusa test program to test the librarys
+
+Author: Brandon Layton
 '''
 
 import tkinter, tkinter.filedialog
@@ -18,10 +22,13 @@ myImage.loadGIF(f)
 #for p in myImage.getImage(0).pixels:
 #	print(p)
 
+images = myImage.getImages()
+_i = 0
 #see the image in cmd line
-for i in range(myImage.imagesAmount):
-	print("Image #"+str(i))
-	myImage.gifImages[i].showImage()
+for img in images:
+	print("Image #"+str(_i))
+	img.showImage()
+	_i+=1
 
 
 

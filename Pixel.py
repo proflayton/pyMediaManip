@@ -1,7 +1,7 @@
 '''
-Pixel
+Pixel.py
 
-
+Author: Brandon Layton
 '''
 
 class Pixel:

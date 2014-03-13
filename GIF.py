@@ -1,8 +1,14 @@
+'''
+GIF.py
+
+Author: Brandon Layton
+'''
 import binascii
 from Pixel import Pixel
 from Image import Image
 import collections
 import Utility
+import copy
 
 class GIFImage(Image):
 	delay		= 0
@@ -99,7 +105,7 @@ class GIF:
 				print("Bits per data: " + str(LZWMinsize))
 
 				#Decompress the imageBlock
-				table = self.globalColorTable
+				table = copy.deepcopy(self.globalColorTable)
 				table.append("CLEAR")
 				table.append("EOI")
 				raster = self.readRasterData(LZWData,LZWMinsize,table)
@@ -120,7 +126,8 @@ class GIF:
 
 				for x in range(0, len(indexStream)):
 					#print(indexStream[x], end=" ")
-					if indexStream[x] == self.transparencyIndex:
+					if indexStream[x] == self.transparencyIndex and self.transparency == 1:
+						#if we are using transparency and we are on the index
 						pass
 					else:
 						gifImage.setPixel(leftPosition+x%width,topPosition+int(x/width),self.globalColorTable[indexStream[x]])
@@ -226,8 +233,10 @@ class GIF:
 				arrayPos=int(index/8)
 				mult = 2**(1+bitsRead)
 				bitsRead+=1
+				#print((intVal>>(index%8) & 1),end="")
+			#print(" ",end="")
 			if not scrap:
-				print(code,end=" ")
+				#print(code,end=" ")
 				if firstCode:
 					if codes[code] != ["CLEAR"]:
 						prev = []
@@ -253,7 +262,7 @@ class GIF:
 					if codes[code] == ["CLEAR"]: #CLEAR
 						continue;
 					elif codes[code] == ["EOI"]: #EOI
-						print("EOI when codes was " + str(len(codes)))
+						#print("EOI when codes was " + str(len(codes)))
 						break;
 					else:
 						#print(str(code), end=", ")
@@ -271,8 +280,8 @@ class GIF:
 				break;
 
 			if len(codes)-1 >= 2**maxIndex-1:
-				#print("maxIndex met: ",end="")
-				#print(maxIndex)
+				print("maxIndex met: ",end="")
+				print(maxIndex)
 				maxIndex += 1
 
 		#print("Raster Data Table: -AFTER")
@@ -283,3 +292,6 @@ class GIF:
 		if gifImages == None:
 			print("Load or create an image first!")
 			return;
+
+	def getImages(self):
+		return self.gifImages

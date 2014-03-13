@@ -1,5 +1,7 @@
 '''
-Image
+Image.py
+
+Author: Brandon Layton
 
 '''
 
@@ -59,11 +61,11 @@ class Image:
 		for pixel in self.pixels:
 			#print(pixel)
 			yD = [Utility.colorDistance(yellow,pixel),'y ']
-			rD = [Utility.colorDistance(red,pixel),'r ']
-			gD = [Utility.colorDistance(green,pixel),'g ']
-			bD = [Utility.colorDistance(blue,pixel),'b ']
-			bkD= [Utility.colorDistance(black,pixel),'B ']
-			wD = [Utility.colorDistance(white,pixel),'w ']
+			rD = [Utility.colorDistance(red,pixel)   ,'r ']
+			gD = [Utility.colorDistance(green,pixel) ,'g ']
+			bD = [Utility.colorDistance(blue,pixel)  ,'b ']
+			bkD= [Utility.colorDistance(black,pixel) ,'B ']
+			wD = [Utility.colorDistance(white,pixel) ,'w ']
 			distances = [yD,rD,gD,bD,bkD,wD]
 			closest = distances[0]
 			for i in range(1,len(distances)):

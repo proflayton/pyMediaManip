@@ -2,6 +2,8 @@
 Utility.py
 
 Holds functions that will be used throughout the library
+
+Author: Brandon Layton
 '''
 
 import collections
