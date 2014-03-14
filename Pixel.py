@@ -1,6 +1,8 @@
 '''
 Pixel.py
 
+Essentially just holds color values in an intelligent way
+
 Author: Brandon Layton
 '''
 
@@ -24,3 +26,11 @@ class Pixel:
 
 	def __repr__(self):
 		return "RGBA: ("+str(self.red)+","+str(self.green)+","+str(self.blue)+","+str(self.alpha)+")"
+
+	def getRGB(self):
+		return [self.red,self.green,self.blue]
+
+	def setRGB(self,rgb):
+		self.red = rgb[0]
+		self.green = rgb[1]
+		self.blue = rgb[2]

@@ -29,3 +29,5 @@ for img in images:
 	print("Image #"+str(_i))
 	img.showImage()
 	_i+=1
+
+myImage.save("C:\\test.gif")

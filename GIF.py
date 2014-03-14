@@ -9,12 +9,15 @@ from Image import Image
 import collections
 import Utility
 import copy
+import struct
 
 class GIFImage(Image):
 	delay		= 0
 	LCTF		= 0
 	interlace	= 0
 	sort		= 0
+	disposalMethod = 0
+	transparencyIndex = 0
 	
 
 class GIF:
@@ -26,6 +29,9 @@ class GIF:
 	imagesAmount = 0
 	gifImages = None
 	delay = 0 #0ms default
+
+	logicalScreenWidth = 0
+	logicalScreenHeight = 0
 
 	globalCodes = None
 	globalColorTable = []
@@ -46,8 +52,8 @@ class GIF:
 
 		print("Loading GIF")
 		file.seek(6,0) #skip magic number
-		logicalScreenWidth  = int.from_bytes(file.read(2),byteorder="little")
-		logicalScreenHeight = int.from_bytes(file.read(2),byteorder="little")
+		self.logicalScreenWidth  = int.from_bytes(file.read(2),byteorder="little")
+		self.logicalScreenHeight = int.from_bytes(file.read(2),byteorder="little")
 		globalFlags 		= int.from_bytes(file.read(1),byteorder="little")
 		#print(globalFlags)
 		GCTF 				  = (globalFlags>>7)&1
@@ -68,7 +74,7 @@ class GIF:
 			b = int(binascii.hexlify(file.read(1)),16)
 			self.globalColorTable.append(Pixel(red=r,green=g,blue=b,alpha=255))
 
-		disposedImage = GIFImage(width=logicalScreenWidth,height=logicalScreenHeight);
+		disposedImage = GIFImage(width=self.logicalScreenWidth,height=self.logicalScreenHeight);
 		disposedImage.fill()
 
 		tempByte = file.read(1)
@@ -122,7 +128,7 @@ class GIF:
 				if self.imagesAmount > 0:
 					gifImage = GIFImage(orig=disposedImage)
 				else:
-					gifImage = GIFImage(width=width,height=height)
+					gifImage = GIFImage(width=self.logicalScreenWidth,height=self.logicalScreenHeight)
 
 				for x in range(0, len(indexStream)):
 					#print(indexStream[x], end=" ")
@@ -134,6 +140,8 @@ class GIF:
 				#print("GIF Width: %s\nGIF Height: %s\n"%(gifImage.width,gifImage.height))
 				#gifImage.showImage()
 				gifImage.delay = self.delay;
+				gifImage.disposalMethod = self.disposalMethod
+				gifImage.transparencyIndex = self.transparencyIndex
 				self.gifImages.append(gifImage)
 				self.imagesAmount+=1
 				atEnd = file.read(1)==b'\x00'
@@ -288,10 +296,149 @@ class GIF:
 		#print(table)
 		return {"indexStream":indexStream,"codes":codes}
 
-	def saveGIF(self,path):
-		if gifImages == None:
+	def save(self,path):
+		if self.gifImages == None:
 			print("Load or create an image first!")
 			return;
+		colors = []
+		#some precursor checks, to see if we need to compress
+		for image in self.gifImages:
+			for pixel in image.getPixels():
+				if not pixel.getRGB() in colors:
+					print(pixel.getRGB())
+					colors.append(pixel.getRGB())
+		#have to compress
+		if len(colors)>256:
+			for image in self.gifImages:
+				image.compressLinearly()
+
+		#time to save
+		file = open(path,'wb+')
+		#write magic number
+		file.write(b'\x47\x49\x46\x38\x39\x61')
+		file.write(struct.pack('<H',self.logicalScreenWidth))
+		file.write(struct.pack('<H',self.logicalScreenHeight))
+		closestColorSize = 1
+		while 2**(closestColorSize+1) < len(colors):
+			closestColorSize += 1
+		closestColorSize -= 1
+		packed = 0
+		packed += closestColorSize
+		#ignore sort flag
+		packed += 1<<5
+		packed += 1<<7
+		file.write(struct.pack('<B',packed))
+		#time for global color table
+		i = 0
+		for c in colors:
+			file.write(struct.pack('<B',c[0]))
+			file.write(struct.pack('<B',c[1]))
+			file.write(struct.pack('<B',c[2]))
+			i+=1
+		#finish it with empty colors
+		while i < 2**(closestColorSize+1):
+			file.write(b'\x00')
+			file.write(b'\x00')
+			file.write(b'\x00')
+			i+=1
+
+		#if we have animation we have to do netscape2.0 application extension
+		if len(self.gifImages) > 1:
+			file.write(b'\x21\xFF\x0B')
+			file.write(b'NETSCAPE2.0')
+			file.write(b'\x03')
+			file.write(b'\x01')
+			file.write(struct.pack('<H',self.repetitions))
+			file.write(b'\x00')
+		#time to write image data
+		for image in self.gifImages:
+			#Graphic Control Extension
+			file.write(b'\x21\xF9\x04')
+			packed = 0
+			packed += self.transparency
+			#ignore input flag
+			packed += image.disposalMethod << 2
+			file.write(struct.pack('<B',packed))
+			file.write(struct.pack('<H',image.delay))
+			file.write(struct.pack("<B",image.transparencyIndex))
+			file.write(b"\x00")
+
+			#image descriptor
+			file.write(b"\x2C")
+			file.write(struct.pack('<H',0 				  ))
+			file.write(struct.pack('<H',0 				  ))
+			file.write(struct.pack('<H',image.width 	  ))
+			file.write(struct.pack('<H',image.height 	  ))
+			packed = 0 #for local table. not handling that at the moment
+			file.write(struct.pack('<B',packed))
+
+			#image data
+			#LZW DATAAA
+			#Start off by creating an indexStream
+			indexStream = []
+			for pixels in image.getPixels():
+				indexStream.append(colors.index(pixels.getRGB()))
+
+			table = copy.deepcopy(colors)
+			table.append(0) #CC
+			table.append(0) #EOI
+			eoi = len(table)-1
+			indexBuffer = []
+			codeStream 	= []
+			codeStream.append(eoi-1) #CC
+
+			i = 0
+			k = indexStream[i]
+			indexBuffer.append(k)
+			i+=1
+			while i < len(indexStream):
+				k = indexStream[i]
+				indexBuffer.append(k)
+				temp = indexBuffer
+				temp.append(k)
+				if temp in table:
+					indexBuffer.append(k)
+				else:
+					table.append(temp)
+					for indexes in indexBuffer:
+						codeStream.append(indexes)
+					indexBuffer = [k]
+				i+=1
+			for indexes in indexBuffer:
+				codeStream.append(indexes)
+			codeStream.append(eoi) #EOI
+
+			file.write(struct.pack('<B',closestColorSize+1)) #minimum LZW size
+
+			#compress the codestream
+			maxIndex = closestColorSize+1
+			index = 0
+			codeIndex = 0
+			arrayPos = 0
+			currentByte = 0
+			byteStream = []
+			for code in codeStream:
+				if code == 2**maxIndex - 1:
+					print("maxIndex met: ",end="")
+					print(maxIndex)
+					maxIndex += 1
+				codeIndex = 0
+				while codeIndex % maxIndex != 0:
+					if index % 8 == 0:
+						file.write(struct.pack('<B',currentByte))
+						currentByte = 0
+					currentByte += ((code>>codeIndex)&1)<<index
+					index+=1
+					codeIndex+=1
+
+
+
+
+			file.write(b"\x00")
+
+			#END OF FILE! :D
+			file.write(b"\x3B")
+
 
 	def getImages(self):
 		return self.gifImages

@@ -7,6 +7,8 @@ Author: Brandon Layton
 
 from Pixel import Pixel
 import Utility
+import math
+from ColorCube import ColorCube
 
 class Image:
 	#Variable Declarations
@@ -41,10 +43,45 @@ class Image:
 		print(len(self.pixels))
 		print(str((y * self.height) + x))
 		return self.pixels[(y * self.width) + x]
+	def getPixels(self):
+		return self.pixels
 
 	def fill(self,pixel=Pixel()):
 		for i in range(len(self.pixels)):
 			self.pixels[i] = pixel
+
+	#Color Quantization
+	#this is really bad at the moment
+	def compress(self,numberOfColors=256):
+		colorCube = ColorCube(numberOfColors)
+		for p1 in self.pixels:
+			color = colorCube.getClusterIn(p1.getRGB())
+			print(p1.getRGB(),end="")
+			print("->",end="")
+			print(color)
+
+	#just rounds the colors in 50's increments
+	#6**3 is less than 256, so this can be made into a GIF
+	def compressLinear(self):
+		for p1 in self.pixels:
+			color = p1.getRGB()
+			newColor = [0,0,0]
+			clusters = [0,50,100,150,200,250]
+			for i in range(3):
+				closest = None
+				closestDistance = None
+				for c in clusters:
+					if closestDistance == None or abs(color[i]-c)<closestDistance:
+						closest = c
+						closestDistance = abs(color[i]-c)
+				newColor[i] = closest
+			p1.setRGB(newColor)
+			print(p1)
+
+		return newColor
+			
+
+
 
 	#Print the image into command line arbitrarily 
 	#(Red Green Blue Yellow Black White)
